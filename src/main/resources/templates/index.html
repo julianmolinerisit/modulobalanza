@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Balanza</title>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/sockjs/1.1.4/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/stomp.js/2.3.3/stomp.min.js"></script>
+</head>
+<body>
+    <h1>Datos de la Balanza</h1>
+
+    <div id="connectionStatus"></div>
+    
+    <table id="tabla-peso" border="1">
+        <thead>
+            <tr>
+                <th>Fecha y Hora</th>
+                <th>Peso</th>
+            </tr>
+        </thead>
+        <tbody id="tabla-cuerpo">
+            <!-- Los datos se agregarán aquí -->
+        </tbody>
+    </table>
+
+    <script>
+        // Asegúrate de que Stomp está definido
+        if (typeof Stomp === 'undefined') {
+            console.error('Stomp.js no se ha cargado correctamente.');
+        } else {
+            var socket = new SockJS('/balanza-websocket');
+            var stompClient = Stomp.over(socket);
+
+            stompClient.connect({}, function (frame) {
+                console.log('Connected: ' + frame);
+                document.getElementById("connectionStatus").innerText = "Conectado correctamente a la balanza.";
+                stompClient.subscribe('/topic/weight', function (message) {
+                    var peso = message.body;
+                    console.log('Peso recibido: ' + peso); // Log recibido
+                    var now = new Date();
+                    var fechaHora = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+
+                    var tableBody = document.getElementById("tabla-cuerpo");
+                    var row = document.createElement("tr");
+
+                    var cellFechaHora = document.createElement("td");
+                    cellFechaHora.textContent = fechaHora;
+                    row.appendChild(cellFechaHora);
+
+                    var cellPeso = document.createElement("td");
+                    cellPeso.textContent = peso;
+                    row.appendChild(cellPeso);
+
+                    tableBody.appendChild(row);
+                });
+            }, function (error) {
+                console.error('Error: ' + error);
+                document.getElementById("connectionStatus").innerText = "Error de conexión.";
+            });
+        }
+
+        function connect() {
+            var portName = document.getElementById("portName").value;
+            fetch('/connect/' + portName).then(response => {
+                if (response.ok) {
+                    document.getElementById("connectionStatus").innerText = "Conexión establecida con el puerto " + portName;
+                } else {
+                    document.getElementById("connectionStatus").innerText = "Error al conectar con el puerto " + portName;
+                }
+            });
+        }
+
+        function disconnect() {
+            fetch('/disconnect').then(response => {
+                if (response.ok) {
+                    document.getElementById("connectionStatus").innerText = "Desconectado correctamente.";
+                } else {
+                    document.getElementById("connectionStatus").innerText = "Error al desconectar.";
+                }
+            });
+        }
+    </script>
+
+    <div>
+        <input type="text" id="portName" placeholder="Nombre del puerto">
+        <button onclick="connect()">Conectar</button>
+        <button onclick="disconnect()">Desconectar</button>
+    </div>
+</body>
+</html>
