@@ -4,32 +4,92 @@
     <title>Balanza</title>
     <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
     <script src="https://cdn.jsdelivr.net/sockjs/1.1.4/sockjs.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        header {
+            background-color: #333;
+            color: white;
+            padding: 10px 0;
+            text-align: center;
+        }
+        main {
+            margin: 20px;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        #connectionStatus {
+            margin-bottom: 20px;
+        }
+        .input-container {
+            margin-bottom: 20px;
+        }
+        .input-container input, .input-container button {
+            padding: 10px;
+            font-size: 16px;
+        }
+        .input-container button {
+            margin-left: 10px;
+        }
+    </style>
 </head>
 <body>
-    <h1>Datos de la Balanza</h1>
+    <header>
+        <h1>Datos de la Balanza</h1>
+    </header>
+    <main>
+        <div id="connectionStatus">Desconectado</div>
 
-    <div id="connectionStatus"></div>
-    
-    <table id="tabla-peso" border="1">
-        <thead>
-            <tr>
-                <th>Fecha y Hora</th>
-                <th>Peso</th>
-            </tr>
-        </thead>
-        <tbody id="tabla-cuerpo">
-            <!-- Los datos se agregarán aquí -->
-        </tbody>
-    </table>
+        <div class="input-container">
+            <input type="text" id="portName" placeholder="Nombre del puerto">
+            <button onclick="connect()">Conectar</button>
+            <button onclick="disconnect()">Desconectar</button>
+        </div>
+
+        <table id="tabla-peso">
+            <thead>
+                <tr>
+                    <th>Fecha y Hora</th>
+                    <th>Peso</th>
+                </tr>
+            </thead>
+            <tbody id="tabla-cuerpo">
+                <!-- Los datos se agregarán aquí -->
+            </tbody>
+        </table>
+    </main>
 
     <script>
-        // Asegúrate de que Stomp está definido
-        if (typeof Stomp === 'undefined') {
-            console.error('Stomp.js no se ha cargado correctamente.');
-        } else {
+        var stompClient = null;
+
+        function connectWebSocket() {
+            console.log("Opening Web Socket...");
             var socket = new SockJS('/balanza-websocket');
-            var stompClient = Stomp.over(socket);
+            stompClient = Stomp.over(socket);
 
             stompClient.connect({}, function (frame) {
                 console.log('Connected: ' + frame);
@@ -37,21 +97,27 @@
                 stompClient.subscribe('/topic/weight', function (message) {
                     var peso = message.body;
                     console.log('Peso recibido: ' + peso); // Log recibido
-                    var now = new Date();
-                    var fechaHora = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
 
-                    var tableBody = document.getElementById("tabla-cuerpo");
-                    var row = document.createElement("tr");
+                    if (peso) {
+                        var now = new Date();
+                        var fechaHora = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
 
-                    var cellFechaHora = document.createElement("td");
-                    cellFechaHora.textContent = fechaHora;
-                    row.appendChild(cellFechaHora);
+                        var tableBody = document.getElementById("tabla-cuerpo");
+                        var row = document.createElement("tr");
 
-                    var cellPeso = document.createElement("td");
-                    cellPeso.textContent = peso;
-                    row.appendChild(cellPeso);
+                        var cellFechaHora = document.createElement("td");
+                        cellFechaHora.textContent = fechaHora;
+                        row.appendChild(cellFechaHora);
 
-                    tableBody.appendChild(row);
+                        var cellPeso = document.createElement("td");
+                        cellPeso.textContent = peso;
+                        row.appendChild(cellPeso);
+
+                        tableBody.appendChild(row);
+                        console.log('Fila añadida a la tabla: ' + row.innerHTML);
+                    } else {
+                        console.log('Peso recibido está vacío.');
+                    }
                 });
             }, function (error) {
                 console.error('Error: ' + error);
@@ -61,30 +127,34 @@
 
         function connect() {
             var portName = document.getElementById("portName").value;
+            console.log('Attempting to connect to port: ' + portName);
             fetch('/connect/' + portName).then(response => {
                 if (response.ok) {
                     document.getElementById("connectionStatus").innerText = "Conexión establecida con el puerto " + portName;
+                    console.log('Connected to port: ' + portName);
+                    connectWebSocket(); // Conectar al WebSocket después de establecer la conexión con el puerto
                 } else {
                     document.getElementById("connectionStatus").innerText = "Error al conectar con el puerto " + portName;
+                    console.error('Failed to connect to port: ' + portName);
                 }
             });
         }
 
         function disconnect() {
+            console.log('Attempting to disconnect from the scale.');
             fetch('/disconnect').then(response => {
                 if (response.ok) {
                     document.getElementById("connectionStatus").innerText = "Desconectado correctamente.";
+                    console.log('Disconnected from the scale.');
                 } else {
                     document.getElementById("connectionStatus").innerText = "Error al desconectar.";
+                    console.error('Failed to disconnect from the scale.');
                 }
             });
         }
-    </script>
 
-    <div>
-        <input type="text" id="portName" placeholder="Nombre del puerto">
-        <button onclick="connect()">Conectar</button>
-        <button onclick="disconnect()">Desconectar</button>
-    </div>
+        // Conectar al WebSocket cuando la página se carga
+        connectWebSocket();
+    </script>
 </body>
 </html>

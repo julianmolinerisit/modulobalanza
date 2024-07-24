@@ -22,20 +22,26 @@ public class BalanzaController {
     @GetMapping("/connect/{portName}")
     @ResponseBody
     public String connect(@PathVariable String portName) {
+        System.out.println("Attempting to connect to port: " + portName);
         balanzaService.connect(portName);
+        System.out.println("Connected to the scale at port " + portName);
         return "Connected to the scale at port " + portName;
     }
 
     @GetMapping("/disconnect")
     @ResponseBody
     public String disconnect() {
+        System.out.println("Attempting to disconnect from the scale.");
         balanzaService.disconnect();
+        System.out.println("Disconnected from the scale.");
         return "Disconnected from the scale";
     }
 
     @GetMapping("/weight")
     @ResponseBody
     public String getWeight() {
-        return balanzaService.getLastWeight();
+        String weight = balanzaService.getLastWeight();
+        System.out.println("Fetching last weight: " + weight);
+        return weight;
     }
 }

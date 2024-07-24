@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 public class BalanzaService {
     private SerialPort serialPort;
     private String lastWeight = "";
+    private StringBuilder inputBuffer = new StringBuilder();
 
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
@@ -36,11 +37,21 @@ public class BalanzaService {
                     if (event.getEventType() != SerialPort.LISTENING_EVENT_DATA_AVAILABLE) {
                         return;
                     }
+
                     byte[] newData = new byte[serialPort.bytesAvailable()];
                     int numRead = serialPort.readBytes(newData, newData.length);
-                    lastWeight = new String(newData).trim();
-                    System.out.println("Received weight: " + lastWeight);
-                    messagingTemplate.convertAndSend("/topic/weight", lastWeight); // Broadcast weight to clients
+                    for (int i = 0; i < numRead; i++) {
+                        char c = (char) newData[i];
+                        System.out.print(c); // Imprimir cada carácter leído para depuración
+                        if (c == '\n') { // Fin de línea
+                            lastWeight = inputBuffer.toString().trim();
+                            inputBuffer.setLength(0); // Limpiar buffer
+                            System.out.println("Received weight: " + lastWeight);
+                            messagingTemplate.convertAndSend("/topic/weight", lastWeight); // Broadcast weight to clients
+                        } else {
+                            inputBuffer.append(c); // Acumular bytes en el buffer
+                        }
+                    }
                 }
             });
         } else {
